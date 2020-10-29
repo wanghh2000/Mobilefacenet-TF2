@@ -1,3 +1,6 @@
+import os
+# Set log level before import, 0-debug(default) 1-info 2-warnning 3-error
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 import numpy as np
 import os
@@ -7,11 +10,14 @@ from model.mobilefacenet_func import *
 from sklearn.model_selection import train_test_split
 
 # Set CPU as available physical device
-my_devices = tf.config.experimental.list_physical_devices(device_type='CPU')
-tf.config.experimental.set_visible_devices(devices= my_devices, device_type='CPU')
+#my_devices = tf.config.experimental.list_physical_devices(device_type='CPU')
+#tf.config.experimental.set_visible_devices(devices=my_devices, device_type='CPU')
+# set GPU
+#my_devices = tf.config.experimental.list_physical_devices(device_type='GPU')
+#tf.config.experimental.set_visible_devices(devices=my_devices, device_type='GPU')
 
 # To find out which devices your operations and tensors are assigned to
-tf.debugging.set_log_device_placement(True)
+#tf.debugging.set_log_device_placement(True)
 
 cls_num = 10572
 
@@ -37,23 +43,25 @@ def preprocess(img):
 
 
 # load image
-img_yzy = preprocess(plt.imread("image/yzy/yzy.jpg"))
-img_lm = preprocess(plt.imread("image/lm/lm.jpg"))
-img_steve = preprocess(plt.imread("image/steve/0.jpg"))
+img_yzy = preprocess(plt.imread("image/yzy.jpg"))
+img_lm = preprocess(plt.imread("image/lm.jpg"))
+img_steve = preprocess(plt.imread("image/yzy_2.jpg"))
 
-img_test = preprocess(plt.imread("image/lm/lm_2.jpg"))
+img_test = preprocess(plt.imread("image/lm_2.jpg"))
 
 
 if __name__ == '__main__':
 
     # feed forward
-    model = keras.models.load_model("pretrained_model/training_model/inference_model_0.993.h5")
-
+    #model = keras.models.load_model("pretrained_model/training_model/inference_model_0.993.h5")
+    model = keras.models.load_model("pretrained_model/training_model/inference_model_0.993.h5", compile=False)
+    #model.summary()
     embedding_yzy = model.predict(img_yzy)
     embedding_lm = model.predict(img_lm)
     embedding_steve = model.predict(img_steve)
 
     embedding_test = model.predict(img_test)
+    #print(embedding_test)
 
     # test result
     embedding_yzy = embedding_yzy / np.expand_dims(np.sqrt(np.sum(np.power(embedding_yzy, 2), 1)), 1)
@@ -69,4 +77,4 @@ if __name__ == '__main__':
     # save database
     db = np.concatenate((embedding_yzy, embedding_lm, embedding_steve), axis=0)
     print(db.shape)
-    np.save("pretrained_model/db", db)
+    #np.save("pretrained_model/db", db)
