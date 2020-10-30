@@ -68,7 +68,7 @@ if __name__ == '__main__':
     embedding_lm = embedding_lm / np.expand_dims(np.sqrt(np.sum(np.power(embedding_lm, 2), 1)), 1)
     embedding_steve = embedding_steve / np.expand_dims(np.sqrt(np.sum(np.power(embedding_steve, 2), 1)), 1)
     embedding_test = embedding_test / np.expand_dims(np.sqrt(np.sum(np.power(embedding_test, 2), 1)), 1)
-
+    print(embedding_yzy)
     # get result
     print(np.sum(np.multiply(embedding_yzy, embedding_test), 1))
     print(np.sum(np.multiply(embedding_lm, embedding_test), 1))
