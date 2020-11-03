@@ -20,7 +20,7 @@ PRE_MODEL = "pretrained_model/training_model/inference_model.h5"
 CHKP_MODEL = "pretrained_model/saved_model/best_model_.{epoch:02d}-{val_loss:.2f}.h5"
 FINAL_MODEL = 'pretrained_model/saved_model/inference_model.h5'
 RESUME = False
-BATCHSZIE = 32
+BATCHSZIE = 16
 #EPOCHS = 70
 EPOCHS = 70
 # load dataset
@@ -65,9 +65,9 @@ def preprocess(x, y):
     x = tf.image.random_flip_left_right(x)
 
     # x: [0,255]=> -1~1
-    x = (tf.cast(x, dtype=tf.float32) - 127.5) / 128.0
+    x = (tf.cast(x, tf.float32) - 127.5) / 128.0
     y = tf.convert_to_tensor(y)
-    y = tf.one_hot(y, depth=cls_num)
+    y = tf.one_hot(y, cls_num, on_value=None, off_value=None)
 
     if RESUME:
         return (x, y), y
