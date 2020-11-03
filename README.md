@@ -22,7 +22,7 @@ Tensorflow 2 version of mobilefacenet from [MobileFaceNets: Efficient CNNs for A
   
         **Note:** The default settings set the batch size of 512, use 2 gpus and train the model on 70 epochs. You can change the settings in `config.py`
       ```
-      python3 train.py
+      python3 trainface.py
       ```
       
 ### Part 3: Test

@@ -1,23 +1,33 @@
+import numpy as np
 import tensorflow as tf
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, LearningRateScheduler
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import Activation, Dense, Input
-import numpy as np
-import os
-#from tensorflow.keras.mixed_precision import experimental as mixed_precision
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, LearningRateScheduler, TensorBoard
 from model.mobilefacenet import ArcFace_v2
 from model.mobilefacenet_func import mobilefacenet
 from sklearn.model_selection import train_test_split
 from test_lfw import get_features, evaluation_10_fold
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+#from tensorflow.keras.mixed_precision import experimental as mixed_precision
 
 # CONFIG
 # flag for wether load pre-train model or not
 # LOAD_MODEL = 0
 # pre-train model
-LOAD_MODEL_PATH = "pretrained_model/training_model/inference_model.h5"
+PRE_MODEL = "pretrained_model/training_model/inference_model.h5"
+CHKP_MODEL = "pretrained_model/saved_model/best_model_.{epoch:02d}-{val_loss:.2f}.h5"
+FINAL_MODEL = 'pretrained_model/saved_model/inference_model.h5'
 RESUME = False
 BATCHSZIE = 128
-EPOCHS = 70
+#EPOCHS = 70
+EPOCHS = 10
+# load dataset
+LFW_DIR = 'C:/bd_ai/ds/lfw'
+CASIA = 'C:/bd_ai/ds/CASIA'
+CASIADIR = os.path.join(CASIA, 'CASIA-WebFace-112X96')
+CASIATXT = os.path.join(CASIA, 'CASIA-WebFace-112X96.txt')
 
 '''
 MIXED_PRECISION = False
@@ -28,19 +38,15 @@ if MIXED_PRECISION:
     print('Variable dtype: %s' % policy.variable_dtype)
 '''
 
-# load dataset
-data_root = "C:/Users/chubb/PycharmProjects/mbfacenet_tf2/CASIA"
-img_txt_dir = os.path.join(data_root, 'CASIA-WebFace-112X96.txt')
-
 
 def load_dataset(val_split=0.05):
     image_list = []     # image directory
     label_list = []     # label
-    with open(img_txt_dir) as f:
+    with open(CASIATXT) as f:
         img_label_list = f.read().splitlines()
     for info in img_label_list:
         image_dir, label_name = info.split(' ')
-        img_dir = os.path.join(data_root, 'CASIA-WebFace-112X96', image_dir)
+        img_dir = os.path.join(CASIADIR, image_dir)
         image_list.append(img_dir)
         label_list.append(int(label_name))
 
@@ -72,7 +78,7 @@ def preprocess(x, y):
 def mobilefacenet_train(softmax=False):
     # build train model
     if RESUME:
-        model = load_model(LOAD_MODEL_PATH)
+        model = load_model(PRE_MODEL)
         inputs = model.input
         x = model.output
     else:
@@ -82,11 +88,11 @@ def mobilefacenet_train(softmax=False):
     if softmax:
         x = Dense(cls_num)(x)
         outputs = Activation('softmax', dtype='float32', name='predictions')(x)
-        return Model(inputs, outputs)
+        return Model(inputs, outputs, name='mobile_face_net')
     else:
         y = Input(shape=(cls_num,), name="target")
         outputs = ArcFace_v2(n_classes=cls_num)((x, y))
-        return Model([inputs, y], outputs)
+        return Model([inputs, y], outputs, name='mobile_face_net')
 
 
 # get data slices
@@ -94,7 +100,6 @@ train_image, val_image, train_label, val_lable = load_dataset()
 
 # get class number
 cls_num = len(np.unique(train_label))
-
 
 # construct train dataset
 db_train = tf.data.Dataset.from_tensor_slices((train_image, train_label))
@@ -104,7 +109,7 @@ db_val = db_val.shuffle(1000).map(preprocess).batch(BATCHSZIE)
 
 
 # callbacks
-class LossHistory(keras.callbacks.Callback):
+class LossHistory(tf.keras.callbacks.Callback):
     def on_train_begin(self, logs={}):
         self.losses = []
 
@@ -131,9 +136,10 @@ class TestLWF(tf.keras.callbacks.Callback):
         else:
             outs = model.layers[-3].output
             infer_model = Model(inputs=model.input, outputs=outs)
-        lfw_dir = 'C:/Users/chubb/PycharmProjects/mbfacenet_tf2/lfw'
+
         result_mat = 'result/best_result.mat'
-        get_features(infer_model, lfw_dir, result_mat)
+        get_features(model=infer_model, lfw_dir=LFW_DIR,
+                     feature_save_dir=result_mat)
         evaluation_10_fold()
 
 
@@ -162,28 +168,32 @@ def scheduler(epoch):
 
 if __name__ == '__main__':
     if RESUME:
-        model = load_model(LOAD_MODEL_PATH)
+        model = load_model(PRE_MODEL)
     else:
-        model = mobilefacenet_train(softmax=False)
-    print(model.summary())
+        model = mobilefacenet_train(softmax=True)
+    # model.summary()
 
+    tbCallBack = TensorBoard(
+        log_dir="logs", histogram_freq=1, write_images=True)
     history = LossHistory()
     # , save_weights_only=True),
-    earlystop = EarlyStopping(monitor='val_loss', min_delta=0.001, patience=15)
-    modefile = "pretrained_model/best_model_.{epoch:02d}-{val_loss:.2f}.h5"
-    checkpoint = ModelCheckpoint(modefile, monitor='val_loss'),
+    earlystop = EarlyStopping(monitor='val_loss', min_delta=0.001, patience=50)
+    checkpoint = ModelCheckpoint(CHKP_MODEL, monitor='val_loss'),
     learnrate = LearningRateScheduler(scheduler)
     #reducelr = ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=200, min_lr=0)
     #callback_list = [earlystop, checkpoint, learnrate, reducelr, history, TestLWF()]
-    callback_list = [earlystop, checkpoint, learnrate, history, TestLWF()]
+    callback_list = [tbCallBack, earlystop,
+                     checkpoint, learnrate, history, TestLWF()]
 
     # compile model
-    # optimizer = tf.keras.optimizers.Adam(lr = 0.001, epsilon = 1e-8)
+    #optimizer = tf.keras.optimizers.Adam(lr=0.001, epsilon=1e-8)
     optimizer = tf.keras.optimizers.SGD(lr=0.1, momentum=0.9, nesterov=True)
     loss_str = 'categorical_crossentropy'
     model.compile(optimizer=optimizer, loss=loss_str, metrics=['accuracy'])
+    #model.fit(db_train, validation_data=db_val, validation_freq=1, epochs=EPOCHS, callbacks=callback_list, initial_epoch=34)
     model.fit(db_train, validation_data=db_val, validation_freq=1,
-              epochs=EPOCHS, callbacks=callback_list, initial_epoch=34)
+              epochs=EPOCHS, callbacks=callback_list, initial_epoch=34, workers=1,
+              use_multiprocessing=False)
 
     # inference model save
     if RESUME:
@@ -192,4 +202,4 @@ if __name__ == '__main__':
     else:
         outs = model.layers[-3].output
         inference_model = Model(inputs=model.input, outputs=outs)
-    inference_model.save('pretrained_model/inference_model.h5')
+    inference_model.save(FINAL_MODEL)

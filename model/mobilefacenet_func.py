@@ -1,7 +1,7 @@
 import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras.regularizers import l2
-from model.mobilefacenet import *
+from model.mobilefacenet import ArcFace_v2
 import math
 
 # weight decay setting
