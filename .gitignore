@@ -5,3 +5,5 @@ __pycache__
 *.npz
 *.pkl
 *.xml
+logs/
+pretrained_model/saved_model/
