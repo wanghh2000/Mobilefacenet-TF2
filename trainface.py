@@ -1,3 +1,5 @@
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import Model, load_model
@@ -7,8 +9,6 @@ from model.mobilefacenet import ArcFace_v2
 from model.mobilefacenet_func import mobilefacenet
 from sklearn.model_selection import train_test_split
 from test_lfw import get_features, evaluation_10_fold
-import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 #from tensorflow.keras.mixed_precision import experimental as mixed_precision
 
@@ -20,9 +20,9 @@ PRE_MODEL = "pretrained_model/training_model/inference_model.h5"
 CHKP_MODEL = "pretrained_model/saved_model/best_model_.{epoch:02d}-{val_loss:.2f}.h5"
 FINAL_MODEL = 'pretrained_model/saved_model/inference_model.h5'
 RESUME = False
-BATCHSZIE = 128
+BATCHSZIE = 32
 #EPOCHS = 70
-EPOCHS = 10
+EPOCHS = 70
 # load dataset
 LFW_DIR = 'C:/bd_ai/ds/lfw'
 CASIA = 'C:/bd_ai/ds/CASIA'
@@ -97,18 +97,19 @@ def mobilefacenet_train(softmax=False):
 
 # get data slices
 train_image, val_image, train_label, val_lable = load_dataset()
-
+train_count = len(train_image)
+val_count = len(val_image)
 # get class number
 cls_num = len(np.unique(train_label))
-
 # construct train dataset
 db_train = tf.data.Dataset.from_tensor_slices((train_image, train_label))
-db_train = db_train.shuffle(1000).map(preprocess).batch(BATCHSZIE)
+db_train = db_train.shuffle(100).map(preprocess).batch(BATCHSZIE)
 db_val = tf.data.Dataset.from_tensor_slices((val_image, val_lable))
-db_val = db_val.shuffle(1000).map(preprocess).batch(BATCHSZIE)
+db_val = db_val.shuffle(100).map(preprocess).batch(BATCHSZIE)
+print('train_count=%d, val_count=%d, cls_num=%d' %
+      (train_count, val_count, cls_num))
 
 
-# callbacks
 class LossHistory(tf.keras.callbacks.Callback):
     def on_train_begin(self, logs={}):
         self.losses = []
@@ -182,18 +183,24 @@ if __name__ == '__main__':
     learnrate = LearningRateScheduler(scheduler)
     #reducelr = ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=200, min_lr=0)
     #callback_list = [earlystop, checkpoint, learnrate, reducelr, history, TestLWF()]
-    callback_list = [tbCallBack, earlystop,
-                     checkpoint, learnrate, history, TestLWF()]
+    callback_list = [tbCallBack, earlystop, checkpoint, learnrate, TestLWF()]
 
     # compile model
     #optimizer = tf.keras.optimizers.Adam(lr=0.001, epsilon=1e-8)
     optimizer = tf.keras.optimizers.SGD(lr=0.1, momentum=0.9, nesterov=True)
-    loss_str = 'categorical_crossentropy'
-    model.compile(optimizer=optimizer, loss=loss_str, metrics=['accuracy'])
+    LOSS_STR = 'categorical_crossentropy'
+    model.compile(optimizer=optimizer, loss=LOSS_STR, metrics=['accuracy'])
     #model.fit(db_train, validation_data=db_val, validation_freq=1, epochs=EPOCHS, callbacks=callback_list, initial_epoch=34)
-    model.fit(db_train, validation_data=db_val, validation_freq=1,
-              epochs=EPOCHS, callbacks=callback_list, initial_epoch=34, workers=1,
-              use_multiprocessing=False)
+    model.fit(db_train,
+            initial_epoch=0,
+            epochs=EPOCHS,
+            steps_per_epoch=int(train_count/BATCHSZIE),
+            validation_data=db_val,
+            validation_steps=int(val_count/BATCHSZIE),
+            validation_freq=1,
+            callbacks=callback_list,
+            workers=1,
+            use_multiprocessing=False)
 
     # inference model save
     if RESUME:
