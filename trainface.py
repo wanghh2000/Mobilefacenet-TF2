@@ -50,8 +50,7 @@ def load_dataset(val_split=0.05):
         image_list.append(img_dir)
         label_list.append(int(label_name))
 
-    trainX, testX, trainy, testy = train_test_split(
-        image_list, label_list, test_size=val_split)
+    trainX, testX, trainy, testy = train_test_split(image_list, label_list, test_size=val_split)
 
     return trainX, testX, trainy, testy
 
@@ -103,11 +102,10 @@ val_count = len(val_image)
 cls_num = len(np.unique(train_label))
 # construct train dataset
 db_train = tf.data.Dataset.from_tensor_slices((train_image, train_label))
-db_train = db_train.shuffle(100).map(preprocess).batch(BATCHSZIE)
+db_train = db_train.shuffle(BATCHSZIE).repeat().map(preprocess).batch(BATCHSZIE)
 db_val = tf.data.Dataset.from_tensor_slices((val_image, val_lable))
-db_val = db_val.shuffle(100).map(preprocess).batch(BATCHSZIE)
-print('train_count=%d, val_count=%d, cls_num=%d' %
-      (train_count, val_count, cls_num))
+db_val = db_val.shuffle(BATCHSZIE).repeat().map(preprocess).batch(BATCHSZIE)
+print('cls_num=%d, train_count=%d, val_count=%d, BATCHSZIE=%d' % (cls_num, train_count, val_count, BATCHSZIE))
 
 
 class LossHistory(tf.keras.callbacks.Callback):
@@ -139,8 +137,7 @@ class TestLWF(tf.keras.callbacks.Callback):
             infer_model = Model(inputs=model.input, outputs=outs)
 
         result_mat = 'result/best_result.mat'
-        get_features(model=infer_model, lfw_dir=LFW_DIR,
-                     feature_save_dir=result_mat)
+        get_features(model=infer_model, lfw_dir=LFW_DIR, feature_save_dir=result_mat)
         evaluation_10_fold()
 
 
@@ -174,8 +171,7 @@ if __name__ == '__main__':
         model = mobilefacenet_train(softmax=True)
     # model.summary()
 
-    tbCallBack = TensorBoard(
-        log_dir="logs", histogram_freq=1, write_images=True)
+    tbCallBack = TensorBoard(log_dir="logs", histogram_freq=1, write_images=True)
     history = LossHistory()
     # , save_weights_only=True),
     earlystop = EarlyStopping(monitor='val_loss', min_delta=0.001, patience=50)
@@ -184,6 +180,7 @@ if __name__ == '__main__':
     #reducelr = ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=200, min_lr=0)
     #callback_list = [earlystop, checkpoint, learnrate, reducelr, history, TestLWF()]
     callback_list = [tbCallBack, earlystop, checkpoint, learnrate, TestLWF()]
+    #callback_list = [tbCallBack, earlystop, checkpoint, learnrate]
 
     # compile model
     #optimizer = tf.keras.optimizers.Adam(lr=0.001, epsilon=1e-8)

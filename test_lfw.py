@@ -41,22 +41,18 @@ def evaluation_10_fold(root='./result/best_result.mat'):
         testFold = fold == i
         flags = np.squeeze(flags)
 
-        mu = np.mean(np.concatenate(
-            (featureLs[valFold[0], :], featureRs[valFold[0], :]), 0), 0)
+        mu = np.mean(np.concatenate((featureLs[valFold[0], :], featureRs[valFold[0], :]), 0), 0)
         mu = np.expand_dims(mu, 0)
         featureLs = featureLs - mu
         featureRs = featureRs - mu
-        featureLs = featureLs / \
-            np.expand_dims(np.sqrt(np.sum(np.power(featureLs, 2), 1)), 1)
-        featureRs = featureRs / \
-            np.expand_dims(np.sqrt(np.sum(np.power(featureRs, 2), 1)), 1)
+        featureLs = featureLs / np.expand_dims(np.sqrt(np.sum(np.power(featureLs, 2), 1)), 1)
+        featureRs = featureRs / np.expand_dims(np.sqrt(np.sum(np.power(featureRs, 2), 1)), 1)
 
         scores = np.sum(np.multiply(featureLs, featureRs), 1)
         threshold = getThreshold(scores[valFold[0]], flags[valFold[0]], 10000)
-        ACCs[i] = getAccuracy(scores[testFold[0]],
-                              flags[testFold[0]], threshold)
-        print('{}    {:.2f}'.format(i+1, ACCs[i] * 100))
-        print('--------')
+        ACCs[i] = getAccuracy(scores[testFold[0]], flags[testFold[0]], threshold)
+        #print('{}    {:.2f}'.format(i+1, ACCs[i] * 100))
+        #print('--------')
         print('AVE    {:.2f}'.format(np.mean(ACCs) * 100))
     return ACCs
 
@@ -136,8 +132,7 @@ def get_features(model, lfw_dir, feature_save_dir, resume=None):
 
     nl, nr, folds, flags = parseList(lfw_dir)
     gen = create_dataset(nl, nr)
-    dataset = tf.data.Dataset.from_generator(
-        gen, (tf.float32, tf.float32, tf.float32, tf.float32)).batch(32)
+    dataset = tf.data.Dataset.from_generator(gen, (tf.float32, tf.float32, tf.float32, tf.float32)).batch(32)
 
     for i, l in enumerate(dataset):
 
@@ -155,7 +150,7 @@ def get_features(model, lfw_dir, feature_save_dir, resume=None):
         else:
             featureRs = np.concatenate((featureRs, featureR), 0)
 
-        print(featureRs.shape)
+        #print(featureRs.shape)
     # save result
     result = {'fl': featureLs, 'fr': featureRs, 'fold': folds, 'flag': flags}
     scipy.io.savemat(feature_save_dir, result)

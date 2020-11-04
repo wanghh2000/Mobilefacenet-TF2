@@ -7,3 +7,4 @@ __pycache__
 *.xml
 logs/
 pretrained_model/saved_model/
+result/
