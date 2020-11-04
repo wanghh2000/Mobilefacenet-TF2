@@ -31,6 +31,7 @@ def getThreshold(scores, flags, thrNum):
 def evaluation_10_fold(root='./result/best_result.mat'):
     ACCs = np.zeros(10)
     result = scipy.io.loadmat(root)
+    print('\n')
     for i in range(10):
         fold = result['fold']
         flags = result['flag']
@@ -53,7 +54,6 @@ def evaluation_10_fold(root='./result/best_result.mat'):
         ACCs[i] = getAccuracy(scores[testFold[0]], flags[testFold[0]], threshold)
         #print('{}    {:.2f}'.format(i+1, ACCs[i] * 100))
         #print('--------')
-        print('\n')
         print('AVE    {:.2f}'.format(np.mean(ACCs) * 100))
     return ACCs
 
